@@ -1,0 +1,218 @@
+@startuml
+
+title "Identity facade with Apigee"
+
+actor User as u
+boundary "User Agent" as ua
+entity "Client App" as b
+box "Apigee API Platform" #LightBlue
+entity "Identity Facade" as id
+entity "Data Proxy" as nerp
+end box
+entity IdP as idp
+participant "Backend" as backend
+
+u -> b: User interaction
+b -> b: App activity
+b -> nerp: GET /protected\n(Authorization: Bearer <access_token>)
+activate nerp
+nerp -> nerp: verify access token
+activate nerp
+deactivate nerp
+nerp -> b: status code: 401\n("error": "invalid_grant")
+deactivate nerp
+
+note over u,idp: Initiate Auth Sequence
+b -> id: GET /authorize\n(client_id, state(1), redirect_uri, response_type [code|token], scope, <font color=blue>code_challenge, code_challenge_method</font>)
+activate id
+id -> id: validate client_id,\nredirect_uri
+activate id
+deactivate id
+id -> id: control presence of state, scope <font color=blue>and code_challenge</font>
+activate id
+deactivate id
+id -> id: <font color=blue>control value of code_challenge_method (S256)</font> and response_type (code|token)
+activate id
+deactivate id
+id -> id: retrieve IdP client_id + IdP connection parameters\nfrom KVM (or PropertySet or Secret)
+activate id
+deactivate id
+id -> id: generate state(2)
+activate id
+deactivate id
+id --> ua: 302 -> /authorize\n(client_id [idp_client_id], state(2),\nredirect_uri [apigee_callback],\nresponse_type [code|token],\nscope)
+deactivate id
+
+note over u,idp: User Authentication
+ua -> idp: GET /authorize\n(client_id [idp_client_id], state(2),\nredirect_uri [apigee_callback],\nresponse_type [code|token],\nscope)
+idp -> ua: login form
+u -> idp: credentials
+idp -> ua: consent form
+u -> idp: allow|reject
+
+opt MFA
+    idp->u: challenge
+    u->idp: challenge response
+end
+
+idp --> ua: 302 -> /callback\n(code [idp authorization code], state(2))
+
+note over u,idp: Token Issuance
+ua -> id: GET /callback\n(code [idp authorization code], state(2))
+activate id
+id -> id: control presence of state and code
+activate id
+deactivate id
+id -> id: extract params from state(2)
+activate id
+deactivate id
+id -> id: import external authorization code
+activate id
+deactivate id
+
+id --> b: 302 /callback [using redirect_uri]\n(code, state(1))
+deactivate id
+note over b,idp: response_type=code (i.e. auth code grant type)
+b ->> id: POST /token\n(code,\nclient credentials,\ngrant_type [authorization_code],\nredirect_uri,\n<font color=blue>code_verifier</font>)
+activate id
+id -> id: validate client credentials, redirect_uri, grant_type
+activate id
+deactivate id
+id -> id: <font color=blue>verify pkce code_verifier: base64url(sha256(code_verifier)) == code_challenge</font>
+activate id
+deactivate id
+id -> id: control presence and value of authorization code
+activate id
+deactivate id
+id -> id: retrieve IdP client\ncredentials + IdP connection parameters from KVM (or PropertySet or Secret)
+activate id
+deactivate id
+id -> idp: POST /token\n(w/ IdP client credentials, code)
+activate id
+idp -> id: access_token, refresh_token,\nid_token, expires_in
+deactivate id
+id -> idp: GET /certs\n(JWKS keys)
+activate id
+idp -> id: return latest JWKS keys
+deactivate id
+id -> id: cache JWKS keys
+activate id
+deactivate id
+id -> id: validate id_token (JWT validation + JWKS)
+activate id
+deactivate id
+id -> id: generate new access and refresh token using expires_in\n(attach IdP tokens as custom attributes)
+activate id
+deactivate id
+opt
+id -> id: generate new id_token,\nsign using Apigee private key,\nput Apigee access token in JWT
+activate id
+deactivate id
+end
+id -> b: 200 OK \n(apigee_tokens, state(1))
+deactivate id
+
+note over b,idp: Token Exchange (RFC 8693)
+opt Token Exchange (RFC 8693)
+    b -> b: Need audience-restricted & downscoped token\nfor downstream service / target audience
+    b ->> id: POST /token\n(client_id, client_secret,\ngrant_type [urn:ietf:params:oauth:grant-type:token-exchange],\nsubject_token [apigee_access_token],\nsubject_token_type [urn:ietf:params:oauth:token-type:access_token],\naudience, scope)
+    activate id
+    id -> id: validate client credentials (client_id, client_secret)\n& retrieve IdP client credentials from Developer App attributes
+    activate id
+    deactivate id
+    id -> id: validate subject_token_type (access_token)\n& control presence of subject_token, audience, and scope
+    activate id
+    deactivate id
+    id -> id: verify subject_token (OAuthV2 VerifyAccessToken)\n& load attached IdP access_token and original IdP scopes
+    activate id
+    deactivate id
+    id -> id: compute allowed scopes intersection (downscoping:\nrequested scope ∩ original IdP token scopes)
+    activate id
+    deactivate id
+    id -> id: retrieve IdP token endpoint parameters from KVM
+    activate id
+    deactivate id
+    id -> idp: POST /token\n(grant_type [urn:ietf:params:oauth:grant-type:token-exchange],\nIdP client credentials,\nsubject_token [idp_access_token],\nsubject_token_type [access_token],\naudience, scope [downscoped])
+    activate id
+    idp -> id: exchanged access_token, id_token,\nrefresh_token, scope, expires_in
+    deactivate id
+    id -> id: compute token expiry (expires_in)\n& generate new exchanged Apigee opaque access_token\n(attach exchanged IdP tokens & downscoped scopes as custom attributes)
+    activate id
+    deactivate id
+    id -> b: 200 OK\n(exchanged apigee_access_token, token_type: Bearer, expires_in, scope)
+    deactivate id
+end
+
+note over u,backend: token use
+u -> b: User interaction
+b -> b: App activity
+b ->> nerp: GET /protected\n(Authorization: Bearer <access_token>)
+activate nerp
+nerp -> nerp: verify access token
+activate nerp
+deactivate nerp
+nerp -> nerp: extract id_token/user info
+activate nerp
+deactivate nerp
+nerp -> nerp: request processing
+activate nerp
+deactivate nerp
+nerp -> backend: id_token/user info transmitted
+activate nerp
+backend -> backend: validate id_token \n+ fine grained \nauthorization (user)\n+ execute business logic
+backend -> nerp: 200 OK
+deactivate nerp
+nerp -> nerp: response processing
+activate nerp
+deactivate nerp
+nerp -> b: 200 OK
+deactivate nerp
+
+note over u,backend: refresh token use
+opt Refresh Token
+    u -> b: User interaction
+    b -> b: App activity
+    b -> nerp: GET /protected\n(Authorization: Bearer <access_token>)
+    activate nerp
+    nerp -> nerp: verify access token
+    activate nerp
+    deactivate nerp
+    nerp -> b: status code: 401\n("error": "access_token_expired")
+    deactivate nerp
+    b ->> id: POST /token\n(refresh_token,\nclient credentials,\ngrant_type [refresh_token],\nredirect_uri)
+    activate id
+    id -> id: validate client credentials, redirect_uri, grant_type
+    activate id
+    deactivate id
+    id -> id: control presence and value of refresh token
+    activate id
+    deactivate id
+    id -> id: retrieve IdP client\ncredentials + IdP connection parameters from KVM (or PropertySet or Secret)
+    activate id
+    deactivate id
+    id -> idp: POST /token\n(w/ IdP client credentials, refresh_token)
+    activate id
+    idp -> id: access_token, refresh_token,\nid_token, expires_in
+    deactivate id
+    id -> idp: GET /certs\n(JWKS keys)
+    activate id
+    idp -> id: return latest JWKS keys
+    deactivate id
+    id -> id: cache JWKS keys
+    activate id
+    deactivate id
+    id -> id: validate id_token (JWT validation + JWKS)
+    activate id
+    deactivate id
+    id -> id: generate new access and refresh token using expires_in\n(attach IdP tokens as custom attributes)
+    activate id
+    deactivate id
+    opt
+    id -> id: generate new id_token,\nsign using Apigee private key,\nput Apigee access token in JWT
+    activate id
+    deactivate id
+    end
+    id -> b: 200 OK \n(apigee_tokens, state(1))
+    deactivate id
+end
+@enduml

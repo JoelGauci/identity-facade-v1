@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+ Copyright 2026 Google LLC
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+      http://www.apache.org/licenses/LICENSE-2.0
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+<AssignMessage continueOnError="false" enabled="true" name="AM-BuildIdPExchangeTokenRequest">
+  <AssignTo createNew="true" type="request">idpPostTokenExchangeRequest</AssignTo>
+  <Set>
+    <Headers>
+      <Header name="Content-Type">application/x-www-form-urlencoded</Header>
+    </Headers>
+    <FormParams>
+      <FormParam name="client_id">{verifyapikey.VAK-VerifyAPIKey-FormParam.idp_client_id}</FormParam>
+      <FormParam name="client_secret">{verifyapikey.VAK-VerifyAPIKey-FormParam.idp_client_secret}</FormParam>
+      <FormParam name="scope">{flow.apigee.scopesForExchange}</FormParam>
+      <FormParam name="subject_token">{accesstoken.idp.access_token}</FormParam>
+      <FormParam name="subject_token_type">urn:ietf:params:oauth:token-type:access_token</FormParam>
+      <FormParam name="grant_type">urn:ietf:params:oauth:grant-type:token-exchange</FormParam>
+      <FormParam name="audience">{request.formparam.audience}</FormParam>
+    </FormParams>
+    <Verb>POST</Verb>
+  </Set>
+  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+</AssignMessage>

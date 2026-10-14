@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+ Copyright 2020 Google LLC
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+      http://www.apache.org/licenses/LICENSE-2.0
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+<ProxyEndpoint name="default">
+  <PreFlow name="PreFlow">
+    <Request>
+      <Step>
+        <Name>AM-SetPKCEMode</Name>
+      </Step>
+    </Request>
+    <Response/>
+  </PreFlow>
+  <Flows>
+    <Flow name="GET /authorize">
+      <Condition>(proxy.pathsuffix MatchesPath "/authorize") and (request.verb = "GET")</Condition>
+      <Request>
+        <Step>
+          <Name>JS-SanitizeClientId</Name>
+        </Step>
+        <Step>
+          <Name>VAK-VerifyAPIKey-ClientId</Name>
+        </Step>
+        <Step>
+          <Name>EV-InputQueryParams</Name>
+        </Step>
+        <Step>
+          <Condition>( flow.pkce.enabled = "true" )</Condition>
+          <Name>EV-InputQueryParams-PKCE</Name>
+        </Step>
+        <Step>
+          <Name>JS-ValidateRedirectURI_Authz</Name>
+        </Step>
+        <Step>
+          <Condition>is_redirect_uri_valid != true</Condition>
+          <Name>RF-InvalidRequest</Name>
+        </Step>
+        <Step>
+          <Condition>( oidc.flow.authorize.response_type != "code" ) and ( oidc.flow.authorize.response_type != "token" )</Condition>
+          <Name>RF-UnsupportedResponseType-Redirect</Name>
+        </Step>
+        <Step>
+          <Condition>( oidc.flow.authorize.scope Is null ) or ( oidc.flow.authorize.scope = "" )</Condition>
+          <Name>RF-InvalidRequest-Redirect</Name>
+        </Step>
+        <Step>
+          <Condition>(( oidc.flow.authorize.code_challenge Is null ) or ( oidc.flow.authorize.code_challenge = "" )) and ( flow.pkce.enabled = "true" )</Condition>
+          <Name>RF-InvalidRequest-Redirect</Name>
+        </Step>
+        <Step>
+          <Condition>( oidc.flow.authorize.code_challenge_method != "S256" ) and ( flow.pkce.enabled = "true" )</Condition>
+          <Name>RF-InvalidRequest-Redirect</Name>
+        </Step>
+        <Step>
+          <Name>KVM-IdpParameters</Name>
+        </Step>
+        <Step>
+          <Condition>( flow.pkce.enabled != "true" )</Condition>
+          <Name>OA2-GenerateAzCode-State2</Name>
+        </Step>
+        <Step>
+          <Condition>( flow.pkce.enabled = "true" )</Condition>
+          <Name>OA2-GenerateAzCode-State2-PKCE</Name>
+        </Step>
+        <Step>
+          <Condition>( flow.pkce.enabled != "true" )</Condition>
+          <Name>AM-GenerateState2ForIdp</Name>
+        </Step>
+        <Step>
+          <Condition>( flow.pkce.enabled = "true" )</Condition>
+          <Name>AM-GenerateState2ForIdp-PKCE</Name>
+        </Step>
+      </Request>
+      <Response>
+        <Step>
+          <Name>AM-RedirectToIdpAuth</Name>
+        </Step>
+      </Response>
+    </Flow>
+    <Flow name="GET /callback">
+      <Condition>(proxy.pathsuffix MatchesPath "/callback") and (request.verb = "GET")</Condition>
+      <Request>
+        <Step>
+          <Name>EV-InputQueryParamsCallback</Name>
+        </Step>
+        <Step>
+          <Condition>( request.queryparam.code Is null ) or ( request.queryparam.code = "" )</Condition>
+          <Name>RF-InvalidGrant</Name>
+        </Step>
+        <Step>
+          <Condition>( request.queryparam.state Is null ) or ( request.queryparam.state = "" )</Condition>
+          <Name>RF-InvalidRequest</Name>
+        </Step>
+        <Step>
+          <Name>OA2-AttributesFromAzCode-State2</Name>
+        </Step>
+        <Step>
+          <Name>AM-StateAttributes</Name>
+        </Step>
+        <Step>
+          <Condition>( flow.pkce.enabled = "true" )</Condition>
+          <Name>AM-StateAttributes-PKCE</Name>
+        </Step>
+        <Step>
+          <Name>AM-SetExternalAuthorizationStatus</Name>
+        </Step>
+        <Step>
+          <Condition>( flow.pkce.enabled != "true" )</Condition>
+          <Name>OA2-StoreExternalAuthorizationCode</Name>
+        </Step>
+        <Step>
+          <Condition>( flow.pkce.enabled = "true" )</Condition>
+          <Name>OA2-StoreExternalAuthorizationCode-PKCE</Name>
+        </Step>
+      </Request>
+      <Response>
+        <Step>
+          <Condition>( flow.pkce.enabled != "true" )</Condition>
+          <Name>AM-RedirectToApp</Name>
+        </Step>
+        <Step>
+          <Condition>( flow.pkce.enabled = "true" )</Condition>
+          <Name>AM-RedirectToApp-PKCE</Name>
+        </Step>
+      </Response>
+    </Flow>
+    <Flow name="POST /token (exchange)">
+      <Condition>(proxy.pathsuffix MatchesPath "/token") and (request.verb = "POST") and (request.formparam.grant_type = "urn:ietf:params:oauth:grant-type:token-exchange")</Condition>
+      <Request>
+        <Step>
+          <Name>VAK-VerifyAPIKey-FormParam</Name>
+        </Step>
+        <Step>
+          <Condition>( verifyapikey.VAK-VerifyAPIKey-FormParam.client_secret != request.formparam.client_secret )</Condition>
+          <Name>RF-InvalidClient</Name>
+        </Step>
+        <Step>
+          <Condition>request.formparam.subject_token_type != "urn:ietf:params:oauth:token-type:access_token"</Condition>
+          <Name>RF-UnsupportedTokenType</Name>
+        </Step>
+        <Step>
+          <Condition>(( request.formparam.subject_token Is null ) or ( request.formparam.subject_token = "" ))</Condition>
+          <Name>RF-InvalidRequest</Name>
+        </Step>
+        <Step>
+          <Condition>(( request.formparam.audience Is null ) or ( request.formparam.audience = "" ))</Condition>
+          <Name>RF-InvalidRequest</Name>
+        </Step>
+        <Step>
+          <Condition>(( request.formparam.scope Is null ) or ( request.formparam.scope = "" ))</Condition>
+          <Name>RF-InvalidRequest</Name>
+        </Step>
+        <Step>
+          <Name>OA2-VerifySubjectToken</Name>
+        </Step>
+        <Step>
+          <Name>JS-AllowedScopesForTokenExchange</Name>
+        </Step>
+        <Step>
+          <Name>AM-BuildIdPExchangeTokenRequest</Name>
+        </Step>
+        <Step>
+          <Name>KVM-IdpParameters</Name>
+        </Step>
+        <Step>
+          <Name>SC-IdPExchangeToken</Name>
+        </Step>
+        <Step>
+          <Name>EV-ExtractDataFromIdpTokenExchange</Name>
+        </Step>
+        <Step>
+          <Name>JS-SetAccessTokenExpiry</Name>
+        </Step>
+        <Step>
+          <Name>AM-SetGrantTypeAsFormParam</Name>
+        </Step>
+        <Step>
+          <Name>OA2-GenerateExchangedAccessToken</Name>
+        </Step>
+      </Request>
+      <Response/>
+    </Flow>
+    <Flow name="POST /token (issuance)">
+      <Condition>(proxy.pathsuffix MatchesPath "/token") and (request.verb = "POST")</Condition>
+      <Request>
+        <Step>
+          <Condition>(request.header.authorization isnot null) and (request.header.authorization != "")</Condition>
+          <Name>BA-GetClientCredentials</Name>
+        </Step>
+        <Step>
+          <Condition>(request.formparam.client_id isnot null) and (request.formparam.client_id != "")</Condition>
+          <Name>EV-ClientCredentialsFromBody</Name>
+        </Step>
+        <Step>
+          <Name>VAK-VerifyAPIKey-ClientId</Name>
+        </Step>
+        <Step>
+          <Condition>( verifyapikey.VAK-VerifyAPIKey-ClientId.client_secret != oidc.flow.client_secret )</Condition>
+          <Name>RF-InvalidClient</Name>
+        </Step>
+        <Step>
+          <Name>JS-ValidateRedirectURI_Token</Name>
+        </Step>
+        <Step>
+          <Condition>( is_redirect_uri_valid != true ) and ( request.formparam.grant_type == "authorization_code" )</Condition>
+          <Name>RF-InvalidRequest</Name>
+        </Step>
+        <Step>
+          <Condition>( request.formparam.grant_type != "authorization_code") and (request.formparam.grant_type != "refresh_token" )</Condition>
+          <Name>RF-UnsupportedGrantType</Name>
+        </Step>
+        <Step>
+          <Condition>((( request.formparam.code Is null ) or ( request.formparam.code = "" )) and (request.formparam.grant_type == "authorization_code"))</Condition>
+          <Name>RF-InvalidGrant</Name>
+        </Step>
+        <Step>
+          <Condition>(( request.formparam.code_verifier Is null ) or ( request.formparam.code_verifier = "" )) and ( flow.pkce.enabled = "true" ) and (request.formparam.grant_type == "authorization_code")</Condition>
+          <Name>RF-InvalidGrant</Name>
+        </Step>
+        <Step>
+          <Condition>(request.formparam.grant_type == "authorization_code")</Condition>
+          <Name>OA2-GetOriginalStateAttributes</Name>
+        </Step>
+        <Step>
+          <Condition>(request.formparam.grant_type == "refresh_token")</Condition>
+          <Name>OA2-GetRefreshTokenAttributes</Name>
+        </Step>
+        <Step>
+          <Condition>( flow.pkce.enabled = "true" ) and (request.formparam.grant_type == "authorization_code")</Condition>
+          <Name>JS-PKCECodeVerification</Name>
+        </Step>
+        <Step>
+          <Condition>( oidc.flow.isPKCECodeVerified == false ) and ( flow.pkce.enabled = "true" ) and (request.formparam.grant_type == "authorization_code")</Condition>
+          <Name>RF-InvalidGrant</Name>
+        </Step>
+        <Step>
+          <Name>KVM-IdpParameters</Name>
+        </Step>
+        <Step>
+          <Name>AM-SanitizeRequest</Name>
+        </Step>
+        <Step>
+          <Name>BA-AddClientID-ClientSecret-AzHeader</Name>
+        </Step>
+        <Step>
+          <Condition>(request.formparam.grant_type == "authorization_code")</Condition>
+          <Name>AM-BuildIdpRequest</Name>
+        </Step>
+        <Step>
+          <Condition>(request.formparam.grant_type == "refresh_token")</Condition>
+          <Name>AM-BuildIdpRefreshTokenRequest</Name>
+        </Step>
+        <Step>
+          <Name>SC-IdpTokenIssuance</Name>
+        </Step>
+        <Step>
+          <Name>EV-JwtFromIdpResponse</Name>
+        </Step>
+        <Step>
+          <Name>JS-GetScopeFromIdpResponse</Name>
+        </Step>
+        <Step>
+          <Name>LC-GetJWKS</Name>
+        </Step>
+        <Step>
+          <Condition>(lookupcache.LC-GetJWKS.cachehit == false)</Condition>
+          <Name>SC-GetJwksFromIdp</Name>
+        </Step>
+        <Step>
+          <Condition>(lookupcache.LC-GetJWKS.cachehit == false)</Condition>
+          <Name>PC-CacheJWKS</Name>
+        </Step>
+        <Step>
+          <Name>EV-ExtractJWKS</Name>
+        </Step>
+        <Step>
+          <Name>VJ-VerifyJwtFromIdp</Name>
+        </Step>
+        <Step>
+          <Name>JS-SetAccessTokenExpiry</Name>
+        </Step>
+        <Step>
+          <Name>AM-SetClientIdAsFormParam</Name>
+        </Step>
+        <Step>
+          <Condition>(request.formparam.grant_type == "authorization_code")</Condition>
+          <Name>OA2-GenerateAccessToken</Name>
+        </Step>
+        <Step>
+          <Condition>(request.formparam.grant_type == "refresh_token")</Condition>
+          <Name>OA2-GenerateRefreshToken</Name>
+        </Step>
+      </Request>
+      <Response>
+        <Step>
+          <Condition>(request.formparam.grant_type == "refresh_token")</Condition>
+          <Name>OA2-SetUpdateTokenAttributes</Name>
+        </Step>
+      </Response>
+    </Flow>
+    <Flow name="GET /protected"> <!-- this conditional flow SHOULD be commented out in production -->
+      <Condition>(proxy.pathsuffix MatchesPath "/protected") and (request.verb = "GET")</Condition>
+      <Request>
+        <Step>
+          <Name>OA2-VerifyAccessToken</Name>
+        </Step>
+        <Step>
+          <Name>KVM-IdpParameters</Name>
+        </Step>
+        <Step>
+          <Name>SC-GetUserInfoFromIdp</Name>
+        </Step>
+        <Step>
+          <Name>EV-ExtractUserInfo</Name>
+        </Step>
+        <Step>
+          <Name>AM-SetDummyResponse</Name>
+        </Step>
+      </Request>
+      <Response/>
+    </Flow>
+    <Flow name="404 - Not Found">
+      <Request>
+        <Step>
+          <Name>RF-404NotFound</Name>
+        </Step>
+      </Request>
+      <Response/>
+    </Flow>
+  </Flows>
+  <PostFlow name="PostFlow">
+    <Request/>
+    <Response/>
+  </PostFlow>
+  <HTTPProxyConnection>
+    <BasePath>/v1/oauth20</BasePath>
+    <VirtualHost>secure</VirtualHost>
+  </HTTPProxyConnection>
+  <RouteRule name="noroute"/>
+</ProxyEndpoint>

@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+ Copyright 2026 Google LLC
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+      http://www.apache.org/licenses/LICENSE-2.0
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+<APIProxy revision="38" name="identity-facade-v1">
+    <DisplayName></DisplayName>
+    <Description></Description>
+    <CreatedAt>1789568711577</CreatedAt>
+    <LastModifiedAt>1789568743645</LastModifiedAt>
+    <BasePaths>/v1/oauth20</BasePaths>
+    <Policies>
+        <Policy>AM-RedirectToApp</Policy>
+        <Policy>JS-GetScopeFromIdpResponse</Policy>
+        <Policy>EV-InputQueryParams</Policy>
+        <Policy>OA2-GetRefreshTokenAttributes</Policy>
+        <Policy>AM-SetDummyResponse</Policy>
+        <Policy>JS-PKCECodeVerification</Policy>
+        <Policy>RF-InvalidGrant</Policy>
+        <Policy>KVM-IdpParameters</Policy>
+        <Policy>RF-UnsupportedResponseType-Redirect</Policy>
+        <Policy>RF-InvalidRequest-Redirect</Policy>
+        <Policy>OA2-StoreExternalAuthorizationCode-PKCE</Policy>
+        <Policy>BA-AddClientID-ClientSecret-AzHeader</Policy>
+        <Policy>AM-StateAttributes-PKCE</Policy>
+        <Policy>AM-GenerateState2ForIdp-PKCE</Policy>
+        <Policy>AM-SetClientIdAsFormParam</Policy>
+        <Policy>OA2-GenerateAccessToken</Policy>
+        <Policy>JS-SetAccessTokenExpiry</Policy>
+        <Policy>RF-404NotFound</Policy>
+        <Policy>OA2-GenerateAzCode-State2</Policy>
+        <Policy>OA2-GenerateAzCode-State2-PKCE</Policy>
+        <Policy>EV-ClientCredentialsFromBody</Policy>
+        <Policy>EV-InputQueryParamsCallback</Policy>
+        <Policy>VJ-VerifyJwtFromIdp</Policy>
+        <Policy>RF-InvalidRequest</Policy>
+        <Policy>OA2-VerifyAccessToken</Policy>
+        <Policy>OA2-GenerateRefreshToken</Policy>
+        <Policy>AM-SetExternalAuthorizationStatus</Policy>
+        <Policy>PC-CacheJWKS</Policy>
+        <Policy>EV-ExtractUserInfo</Policy>
+        <Policy>AM-BuildIdpRequest</Policy>
+        <Policy>VAK-VerifyAPIKey-ClientId</Policy>
+        <Policy>AM-RedirectToIdpAuth</Policy>
+        <Policy>SC-GetJwksFromIdp</Policy>
+        <Policy>JS-SanitizeClientId</Policy>
+        <Policy>AM-SanitizeRequest</Policy>
+        <Policy>OA2-GetOriginalStateAttributes</Policy>
+        <Policy>SC-GetUserInfoFromIdp</Policy>
+        <Policy>LC-GetJWKS</Policy>
+        <Policy>OA2-SetUpdateTokenAttributes</Policy>
+        <Policy>OA2-StoreExternalAuthorizationCode</Policy>
+        <Policy>RF-UnsupportedGrantType</Policy>
+        <Policy>AM-BuildIdpRefreshTokenRequest</Policy>
+        <Policy>AM-GenerateState2ForIdp</Policy>
+        <Policy>OA2-AttributesFromAzCode-State2</Policy>
+        <Policy>EV-ExtractJWKS</Policy>
+        <Policy>BA-GetClientCredentials</Policy>
+        <Policy>EV-InputQueryParams-PKCE</Policy>
+        <Policy>RF-InvalidClient</Policy>
+        <Policy>AM-RedirectToApp-PKCE</Policy>
+        <Policy>AM-StateAttributes</Policy>
+        <Policy>AM-SetPKCEMode</Policy>
+        <Policy>SC-IdpTokenIssuance</Policy>
+        <Policy>EV-JwtFromIdpResponse</Policy>
+        <Policy>VAK-VerifyAPIKey-FormParam</Policy>
+        <Policy>RF-UnsupportedTokenType</Policy>
+        <Policy>OA2-VerifySubjectToken</Policy>
+        <Policy>JS-AllowedScopesForTokenExchange</Policy>
+        <Policy>AM-BuildIdPExchangeTokenRequest</Policy>
+        <Policy>SC-IdPExchangeToken</Policy>
+        <Policy>EV-ExtractDataFromIdpTokenExchange</Policy>
+        <Policy>OA2-GenerateExchangedAccessToken</Policy>
+        <Policy>AM-SetGrantTypeAsFormParam</Policy>
+        <Policy>JS-ValidateRedirectURI_Authz</Policy>
+        <Policy>JS-ValidateRedirectURI_Token</Policy>
+    </Policies>
+    <ProxyEndpoints>
+        <ProxyEndpoint>default</ProxyEndpoint>
+    </ProxyEndpoints>
+    <Resources>
+        <Resource>jsc://JS-SetAccessTokenExpiry.js</Resource>
+        <Resource>jsc://JS-PKCECodeVerification.js</Resource>
+        <Resource>jsc://JS-GetScopeFromIdpResponse.js</Resource>
+        <Resource>jsc://JS-SanitizeClientId.js</Resource>
+        <Resource>jsc://JS-AllowedScopesForTokenExchange.js</Resource>
+        <Resource>jsc://JS-ValidateRedirectURI.js</Resource>
+    </Resources>
+</APIProxy>
