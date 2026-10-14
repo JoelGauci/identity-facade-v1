@@ -369,13 +369,12 @@ export EXCHANGE_SCOPE="openid email"
    ```
 
 #### 4. Exchange Authorization Code for Apigee Tokens (`Section 5 — Step 2`)
-Copy/paste the **Step 2** block as-is (without editing anything). It uses `${APIGEE_AUTH_CODE}` and `${SCOPE}`, and automatically exports **`APIGEE_ACCESS_TOKEN`** and **`APIGEE_REFRESH_TOKEN`** for the next steps:
+Copy/paste the **Step 2** block as-is (without editing anything). It authenticates the client via HTTP Basic Authorization (`${CLIENT_ID}:${CLIENT_SECRET}`), uses `${APIGEE_AUTH_CODE}` and `${SCOPE}`, and automatically exports **`APIGEE_ACCESS_TOKEN`** and **`APIGEE_REFRESH_TOKEN`** for the next steps:
 ```bash
 TOKEN_RESPONSE=$(curl -s -X POST "https://${APIGEE_HOST}/v1/oauth20/token" \
+  -H "Authorization: Basic $(printf '%s:%s' "${CLIENT_ID}" "${CLIENT_SECRET}" | base64 | tr -d '\n')" \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "grant_type=authorization_code" \
-  -d "client_id=${CLIENT_ID}" \
-  -d "client_secret=${CLIENT_SECRET}" \
   -d "redirect_uri=${REDIRECT_URI}" \
   -d "scope=${SCOPE}" \
   -d "code=${APIGEE_AUTH_CODE}" \
